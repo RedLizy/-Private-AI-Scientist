@@ -17,16 +17,21 @@ import SetupWizard from '../components/scientist/SetupWizard';
 import '../styles/ScienceAIPlatform.css';
 
 const ScienceAIPlatform = () => {
-  // Page state
-  const [currentPage, setCurrentPage] = useState('home');
-  const [projectReady, setProjectReady] = useState(false);
-  
-  // Project data
-  const [projectData, setProjectData] = useState({
+  // Check for existing project in localStorage
+  const savedProject = localStorage.getItem('aiScientistProject');
+  const initialProjectData = savedProject ? JSON.parse(savedProject) : {
     name: '',
     objectives: [''],
     timeline: ''
-  });
+  };
+  const hasExistingProject = savedProject !== null;
+  
+  // Page state - redirect to workspace if project exists
+  const [currentPage, setCurrentPage] = useState(hasExistingProject ? 'workspace' : 'home');
+  const [projectReady, setProjectReady] = useState(hasExistingProject);
+  
+  // Project data
+  const [projectData, setProjectData] = useState(initialProjectData);
   
   // Workspace state
   const [showWorkflow, setShowWorkflow] = useState(false);
@@ -34,7 +39,9 @@ const ScienceAIPlatform = () => {
   const [userQuery, setUserQuery] = useState('');
   const [documentContent, setDocumentContent] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
-  const [editableContent, setEditableContent] = useState('');
+  const [editableContent, setEditableContent] = useState(
+    localStorage.getItem('aiScientistResearchPlan') || ''
+  );
   const [selectedText, setSelectedText] = useState('');
   const [selectionPos, setSelectionPos] = useState({ x: 0, y: 0 });
   const [showTextSelector, setShowTextSelector] = useState(false);
@@ -51,6 +58,13 @@ const ScienceAIPlatform = () => {
   // Refs
   const contentEditableRef = useRef(null);
   const newFileMenuRef = useRef(null);
+  
+  // Auto-save editable content to localStorage
+  useEffect(() => {
+    if (editableContent && projectReady) {
+      localStorage.setItem('aiScientistResearchPlan', editableContent);
+    }
+  }, [editableContent, projectReady]);
   
   // Workflow steps
   const steps = [
@@ -386,13 +400,19 @@ The constructed recombinant plasmid is expected to achieve efficient and stable 
     setProjectData(projectData);
     setProjectReady(true);
     
+    // Save project data to localStorage
+    localStorage.setItem('aiScientistProject', JSON.stringify(projectData));
+    
     // Show generating status
     setCurrentPage('generating');
     setGeneratingPlan(true);
     
     // Simulate AI generating research plan
     setTimeout(() => {
-      setEditableContent(generateResearchPlan());
+      const researchPlan = generateResearchPlan();
+      setEditableContent(researchPlan);
+      // Save research plan to localStorage
+      localStorage.setItem('aiScientistResearchPlan', researchPlan);
       setGeneratingPlan(false);
       setCurrentPage('workspace');
     }, 5000);
@@ -595,6 +615,19 @@ Their newly developed PichiaSig-12 sequence is recommended, which has shown exce
           <header className="bg-gray-800 px-6 py-3 flex items-center justify-between shadow-md">
             <div className="text-white font-medium text-lg">{projectData.name || "Research Project"}</div>
             <div className="flex items-center gap-4">
+              <button 
+                onClick={() => {
+                  if (window.confirm('Create a new project? Current project data will be saved.')) {
+                    localStorage.removeItem('aiScientistProject');
+                    localStorage.removeItem('aiScientistResearchPlan');
+                    window.location.reload();
+                  }
+                }}
+                className="px-3 py-1.5 bg-blue-600 rounded-md text-white text-sm flex items-center hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                New Project
+              </button>
               <button className="px-3 py-1.5 bg-gray-700 rounded-md text-gray-200 text-sm flex items-center">
                 <Save className="w-4 h-4 mr-1" />
                 Save
